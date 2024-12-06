@@ -41,8 +41,19 @@ public class SecurityServiceTest {
 
     private static Stream<Arguments> sensorsDeactivation() {
         return Stream.of(
-                arguments(new Sensor("Sensor 1", SensorType.DOOR, true), new Sensor("Sensor 2", SensorType.WINDOW,true)),
-                arguments(new Sensor("Sensor 1", SensorType.DOOR, true), new Sensor("Sensor 2", SensorType.WINDOW, true))
+                arguments(new Sensor("Sensor 1", SensorType.DOOR, true),
+                        new Sensor("Sensor 2", SensorType.WINDOW,true)),
+                arguments(new Sensor("Sensor 1", SensorType.DOOR, true),
+                        new Sensor("Sensor 2", SensorType.WINDOW, true))
+        );
+    }
+
+    private static Stream<Arguments> sensorsActivation() {
+        return Stream.of(
+                arguments(new Sensor("Sensor 1", SensorType.DOOR, false),
+                        new Sensor("Sensor 2", SensorType.WINDOW,false)),
+                arguments(new Sensor("Sensor 1", SensorType.DOOR, false),
+                        new Sensor("Sensor 2", SensorType.WINDOW, false))
         );
     }
 
@@ -139,7 +150,7 @@ public class SecurityServiceTest {
     }
 
     @ParameterizedTest
-    @MethodSource("sensorsDeactivation")
+    @MethodSource("sensorsActivation")
     @DisplayName("CaseNo.08")
     public void whenNoCatDetectedAndAllSensorsInactive_thenSetToNoAlarm(Sensor sensor1 ,Sensor sensor2) {
         Set<Sensor> sensors = new HashSet<>();
@@ -151,7 +162,7 @@ public class SecurityServiceTest {
         when(mockFakeImageService.imageContainsCat(any(BufferedImage.class), eq(50.0f))).thenReturn(false);
         serviceUnderTest.processImage(mock(BufferedImage.class));
 
-        verify(mockSecurityRepository, never()).setAlarmStatus(any(AlarmStatus.class));
+        verify(mockSecurityRepository, times(1)).setAlarmStatus(AlarmStatus.NO_ALARM);
     }
 
     @Test
@@ -168,9 +179,11 @@ public class SecurityServiceTest {
         Set<Sensor> sensors = new HashSet<>();
         Sensor sensor1 = new Sensor("Sensor 1", SensorType.DOOR, true);
         sensors.add(sensor1);
+        serviceUnderTest.addSensor(sensor1);
 
         Sensor sensor2 = new Sensor("Sensor 2", SensorType.WINDOW, true);
         sensors.add(sensor2);
+        serviceUnderTest.addSensor(sensor2);
 
         when(mockSecurityRepository.getSensors()).thenReturn(sensors);
 
@@ -184,11 +197,48 @@ public class SecurityServiceTest {
     @Test
     @DisplayName("CaseNo.11")
     public void whenSystemArmedAndCatDetected_thenSetAlarm() {
-        when(mockSecurityRepository.getArmingStatus()).thenReturn(ArmingStatus.DISARMED);
+        serviceUnderTest.setArmingStatus(ArmingStatus.DISARMED);
+        when(mockSecurityRepository.getArmingStatus()).thenReturn(ArmingStatus.ARMED_HOME);
         when(mockFakeImageService.imageContainsCat(any(BufferedImage.class), eq(50.0f))).thenReturn(true);
         serviceUnderTest.processImage(mock(BufferedImage.class));
 
-        serviceUnderTest.setArmingStatus(ArmingStatus.ARMED_HOME);
         verify(mockSecurityRepository, times(1)).setAlarmStatus(AlarmStatus.ALARM);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ArmingStatus.class, names = {"DISARMED","ARMED_HOME", "ARMED_AWAY"})
+    @DisplayName("CaseNo.12")
+    public void whenSystemAnyAndCatNotDetected_thenSetNotAlarm(ArmingStatus armingStatus) {
+        when(mockFakeImageService.imageContainsCat(any(BufferedImage.class), eq(50.0f))).thenReturn(false);
+        serviceUnderTest.processImage(mock(BufferedImage.class));
+
+        serviceUnderTest.setArmingStatus(armingStatus);
+        verify(mockSecurityRepository, never()).setAlarmStatus(AlarmStatus.ALARM);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ArmingStatus.class, names = {"DISARMED", "ARMED_AWAY"})
+    @DisplayName("CaseNo.13")
+    public void whenSystemNotArmedHomeAndCatDetected_thenSetNotAlarm(ArmingStatus armingStatus) {
+        when(mockSecurityRepository.getArmingStatus()).thenReturn(armingStatus);
+        when(mockFakeImageService.imageContainsCat(any(BufferedImage.class), eq(50.0f))).thenReturn(true);
+        serviceUnderTest.processImage(mock(BufferedImage.class));
+
+        verify(mockSecurityRepository, never()).setAlarmStatus(AlarmStatus.ALARM);
+    }
+    @ParameterizedTest
+    @MethodSource("sensorsDeactivation")
+    @DisplayName("CaseNo.14")
+    public void whenNoCatDetectedAndAllSensorsInactive_thenNotChangeAlarm(Sensor sensor1 ,Sensor sensor2) {
+        Set<Sensor> sensors = new HashSet<>();
+        sensors.add(sensor1);
+        sensors.add(sensor2);
+
+        when(mockSecurityRepository.getSensors()).thenReturn(sensors);
+        lenient().when(mockSecurityRepository.getAlarmStatus()). thenReturn(AlarmStatus.ALARM);
+        when(mockFakeImageService.imageContainsCat(any(BufferedImage.class), eq(50.0f))).thenReturn(false);
+        serviceUnderTest.processImage(mock(BufferedImage.class));
+
+        verify(mockSecurityRepository, never()).setAlarmStatus(any(AlarmStatus.class));
     }
 }
