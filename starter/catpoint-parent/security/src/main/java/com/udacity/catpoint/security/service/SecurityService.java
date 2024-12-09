@@ -16,7 +16,7 @@ import java.util.Set;
 /**
  * Service that receives information about changes to the security system. Responsible for
  * forwarding updates to the repository and making any decisions about changing the system state.
- *
+ * <p>
  * This is the class that should contain most of the business logic for our system, and it is the
  * class you will be writing unit tests for.
  */
@@ -35,21 +35,20 @@ public class SecurityService {
     /**
      * Sets the current arming status for the system. Changing the arming status
      * may update both the alarm status.
+     *
      * @param armingStatus
      */
     public void
     setArmingStatus(ArmingStatus armingStatus) {
-        if(armingStatus == ArmingStatus.DISARMED) {
+        if (armingStatus == ArmingStatus.DISARMED) {
             setAlarmStatus(AlarmStatus.NO_ALARM);
         } else {
-            // Deactivate all sensors if system is armed (home or away)
             List<Sensor> sensors = new ArrayList<>(securityRepository.getSensors());
             sensors.forEach(sensor -> {
                 sensor.setActive(false);
                 securityRepository.updateSensor(sensor);
             });
 
-            // If a cat is detected and system is armed home, set alarm to ALARM
             if (isCatDetected && armingStatus == ArmingStatus.ARMED_HOME) {
                 setAlarmStatus(AlarmStatus.ALARM);
             }
@@ -60,6 +59,7 @@ public class SecurityService {
     /**
      * Internal method that handles alarm status changes based on whether
      * the camera currently shows a cat.
+     *
      * @param cat True if a cat is detected, otherwise false.
      */
     private void catDetected(Boolean cat) {
@@ -67,8 +67,10 @@ public class SecurityService {
         statusListeners.forEach(listener -> listener.catDetected(isCatDetected));
 
         if (isCatDetected) {
-            switch (securityRepository.getArmingStatus()){
-                case DISARMED, ARMED_AWAY -> {return;}
+            switch (securityRepository.getArmingStatus()) {
+                case DISARMED, ARMED_AWAY -> {
+                    return;
+                }
                 case ARMED_HOME -> setAlarmStatus(AlarmStatus.ALARM);
             }
         } else {
@@ -81,18 +83,16 @@ public class SecurityService {
 
     /**
      * Register the StatusListener for alarm system updates from within the SecurityService.
+     *
      * @param statusListener
      */
     public void addStatusListener(StatusListener statusListener) {
         statusListeners.add(statusListener);
     }
-//
-//    public void removeStatusListener(StatusListener statusListener) {
-//        statusListeners.remove(statusListener);
-//    }
 
     /**
      * Change the alarm status of the system and notify all listeners.
+     *
      * @param status
      */
     public void setAlarmStatus(AlarmStatus status) {
@@ -104,10 +104,10 @@ public class SecurityService {
      * Internal method for updating the alarm status when a sensor has been activated.
      */
     private void handleSensorActivated() {
-        if(securityRepository.getArmingStatus() == ArmingStatus.DISARMED) {
+        if (securityRepository.getArmingStatus() == ArmingStatus.DISARMED) {
             return; //no problem if the system is disarmed
         }
-        switch(securityRepository.getAlarmStatus()) {
+        switch (securityRepository.getAlarmStatus()) {
             case NO_ALARM -> setAlarmStatus(AlarmStatus.PENDING_ALARM);
             case PENDING_ALARM -> setAlarmStatus(AlarmStatus.ALARM);
         }
@@ -124,6 +124,7 @@ public class SecurityService {
 
     /**
      * Helper method to check if all sensors are inactive.
+     *
      * @return True if all sensors are inactive, false otherwise.
      */
     private boolean allSensorsInactive() {
@@ -134,13 +135,14 @@ public class SecurityService {
 
     /**
      * Change the activation status for the specified sensor and update alarm status if necessary.
+     *
      * @param sensor
      * @param active
      */
     public void changeSensorActivationStatus(Sensor sensor, Boolean active) {
         if (active) {
             handleSensorActivated();
-        } else  {
+        } else {
             handleSensorDeactivated();
         }
 
@@ -151,6 +153,7 @@ public class SecurityService {
     /**
      * Send an image to the SecurityService for processing. The securityService will use its provided
      * ImageService to analyze the image for cats and update the alarm status accordingly.
+     *
      * @param currentCameraImage
      */
     public void processImage(BufferedImage currentCameraImage) {

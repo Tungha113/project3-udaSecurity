@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.Mockito.*;
 
@@ -141,10 +142,8 @@ public class SecurityServiceTest {
     @DisplayName("CaseNo.07")
     public void whenCatDetectedWhileArmedHome_thenSetAlarm() {
         when(mockSecurityRepository.getArmingStatus()).thenReturn(ArmingStatus.ARMED_HOME);
-        when(mockFakeImageService.imageContainsCat(any(), anyFloat())).thenReturn(true);
-
-        BufferedImage catImage = new BufferedImage(200, 200, BufferedImage.TYPE_INT_RGB);
-        serviceUnderTest.processImage(catImage);
+        when(mockFakeImageService.imageContainsCat(any(BufferedImage.class), eq(50.0f))).thenReturn(true);
+        serviceUnderTest.processImage(mock(BufferedImage.class));
 
         verify(mockSecurityRepository, times(1)).setAlarmStatus(AlarmStatus.ALARM);
     }
@@ -189,9 +188,9 @@ public class SecurityServiceTest {
 
         serviceUnderTest.setArmingStatus(status);
 
-        for (Sensor sensor : serviceUnderTest.getSensors()) {
-            assertEquals(false, sensor.getActive());
-        }
+        boolean allInactive = serviceUnderTest.getSensors().stream()
+                .noneMatch(Sensor::getActive);
+        assertTrue(allInactive);
     }
 
     @Test
