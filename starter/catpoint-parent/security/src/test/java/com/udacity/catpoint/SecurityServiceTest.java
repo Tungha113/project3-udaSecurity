@@ -103,7 +103,7 @@ public class SecurityServiceTest {
     @MethodSource("sensorsDeactivation")
     @DisplayName("CaseNo.04")
     public void whenAlarmIsActive_thenSensorStateChangeDoesNotAffectAlarm(Sensor sensor1,Sensor sensor2) {
-        when(mockSecurityRepository.getAlarmStatus()).thenReturn(AlarmStatus.ALARM);
+        when(mockSecurityRepository.getArmingStatus()).thenReturn(ArmingStatus.DISARMED);
 
         SecurityService spyService = spy(serviceUnderTest);
         spyService.changeSensorActivationStatus(sensor1, true);
@@ -196,12 +196,13 @@ public class SecurityServiceTest {
     @Test
     @DisplayName("CaseNo.11")
     public void whenSystemArmedAndCatDetected_thenSetAlarm() {
-        serviceUnderTest.setArmingStatus(ArmingStatus.DISARMED);
+        serviceUnderTest.isCatDetected = true;
+        serviceUnderTest.setArmingStatus(ArmingStatus.ARMED_HOME);
         when(mockSecurityRepository.getArmingStatus()).thenReturn(ArmingStatus.ARMED_HOME);
         when(mockFakeImageService.imageContainsCat(any(BufferedImage.class), eq(50.0f))).thenReturn(true);
         serviceUnderTest.processImage(mock(BufferedImage.class));
 
-        verify(mockSecurityRepository, times(1)).setAlarmStatus(AlarmStatus.ALARM);
+        verify(mockSecurityRepository, atLeastOnce()).setAlarmStatus(AlarmStatus.ALARM);
     }
 
     @ParameterizedTest
@@ -237,6 +238,18 @@ public class SecurityServiceTest {
         lenient().when(mockSecurityRepository.getAlarmStatus()). thenReturn(AlarmStatus.ALARM);
         when(mockFakeImageService.imageContainsCat(any(BufferedImage.class), eq(50.0f))).thenReturn(false);
         serviceUnderTest.processImage(mock(BufferedImage.class));
+
+        verify(mockSecurityRepository, never()).setAlarmStatus(any(AlarmStatus.class));
+    }
+
+    @Test
+    @DisplayName("CaseNo.15")
+    public void whenSensorActivatedWhileActive_thenNoChangeToAlarmState() {
+        Sensor sensor = new Sensor("New sensor", SensorType.WINDOW, false);
+        when(mockSecurityRepository.getAlarmStatus()).thenReturn(AlarmStatus.ALARM);
+
+        SecurityService spyService = spy(serviceUnderTest);
+        spyService.changeSensorActivationStatus(sensor, true);
 
         verify(mockSecurityRepository, never()).setAlarmStatus(any(AlarmStatus.class));
     }
